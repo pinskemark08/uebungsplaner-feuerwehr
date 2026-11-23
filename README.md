@@ -51,7 +51,7 @@ Die App leitet keine technischen Werte, Bauteilfunktionen, Einbauorte oder Baute
 ## Auf GitHub Pages veröffentlichen
 
 1. Öffne das Repository auf GitHub und gehe zu **Settings → Pages**.
-2. Wähle **Deploy from a branch**, den Branch `pinskemark08-roadster-project-app` und `/(root)`.
+2. Wähle **Deploy from a branch**, den Branch `main` und `/(root)`.
 3. Speichere die Einstellung und öffne die angezeigte Pages-Adresse.
 
 Auf Pages bleiben die Daten im jeweiligen Browserprofil der Person, die die Seite nutzt. Eine Veröffentlichung stellt keine gemeinsame Projektdatenbank bereit.
