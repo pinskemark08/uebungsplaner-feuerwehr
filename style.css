@@ -36,7 +36,10 @@ h1, h2, h3, .brand strong { font-family: Manrope, "Segoe UI", sans-serif; }
 .brand small { display: block; color: var(--muted); font-size: 11px; letter-spacing: .055em; }
 .topbar-meta { display: flex; align-items: center; gap: 18px; }
 .local-pill { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
-.local-pill > span, .project-status > span { width: 8px; height: 8px; border-radius: 50%; background: #5e9c72; }
+.local-pill > span:first-child, .project-status > span { width: 8px; height: 8px; border-radius: 50%; background: #5e9c72; }
+.local-pill > span:last-child { color: var(--muted); font-size: 12px; }
+.local-pill > span:first-child[data-state="local"] { background: #bd9654; }
+.local-pill > span:first-child[data-state="error"] { background: #b52e30; }
 
 .app-shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: calc(100vh - 72px); }
 .sidebar { position: sticky; top: 72px; align-self: start; display: flex; flex-direction: column; min-height: calc(100vh - 72px); padding: 30px 16px 20px; background: var(--green); color: #eef4ed; }
@@ -131,6 +134,11 @@ h1, h2, h3, .brand strong { font-family: Manrope, "Segoe UI", sans-serif; }
 .notice { margin: 17px 0; padding: 13px 15px; border: 1px solid #dbe5dc; border-radius: 7px; color: #485e50; background: #edf3ee; font-size: 12px; }
 .notice strong { color: var(--green); }
 .notice-warm { border-color: #ebdfc9; color: #66583e; background: var(--gold-soft); }
+.cloud-status { margin: 0 0 15px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 6px; color: #536159; background: #f7f7f2; font-size: 12px; }
+.cloud-status[data-state="synced"] { border-color: #d1e2d4; color: #315943; background: #edf5ee; }
+.cloud-status[data-state="saving"] { border-color: #ebdfc9; color: #66583e; background: var(--gold-soft); }
+.cloud-status[data-state="error"] { border-color: #e8c7c4; color: #792528; background: #fbeeed; }
+.cloud-panel > .text-button { display: inline-block; margin-top: 10px; }
 .alert { margin-bottom: 18px; padding: 12px 15px; border: 1px solid #e8c7c4; border-radius: 7px; color: #792528; background: #fbeeed; font-size: 13px; }
 .alert.success { border-color: #d1e2d4; color: #315943; background: #edf5ee; }
 

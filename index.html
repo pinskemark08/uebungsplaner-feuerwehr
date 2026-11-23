@@ -7,6 +7,7 @@
   <meta name="description" content="Browserbasierte Projektverwaltung für ein Smart-Roadster-Karosserieprojekt.">
   <title>Roadster Karosserieprojekt</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -16,7 +17,7 @@
       <span><strong>ROADSTER</strong><small>Karosserieprojekt</small></span>
     </a>
     <div class="topbar-meta">
-      <span class="local-pill"><span aria-hidden="true"></span> Lokal auf diesem Gerät</span>
+      <span class="local-pill"><span id="cloud-status-dot" aria-hidden="true"></span><span id="cloud-status-short">Lokaler Speicher</span></span>
       <button class="button button-quiet" type="button" data-view="sicherung">Sicherung</button>
     </div>
   </header>
@@ -49,7 +50,7 @@
           <h1 id="page-title">Projektüberblick</h1>
           <p class="page-subtitle">Teile, Fertigungsplanung und Dokumentation an einem Ort.</p>
         </div>
-        <span class="project-status"><span aria-hidden="true"></span> Projekt lokal verwaltet</span>
+        <span class="project-status"><span aria-hidden="true"></span> Lokaler Browser-Cache aktiv</span>
       </div>
 
       <section id="view-ueberblick" class="view active" aria-labelledby="page-title">
@@ -194,6 +195,28 @@
 
       <section id="view-sicherung" class="view" aria-labelledby="page-title" hidden>
         <div class="section-toolbar"><div><p class="eyebrow">DATENHOHEIT</p><h2>JSON-Sicherung</h2><p class="muted">Exportiere oder stelle den gesamten lokalen Projektbestand wieder her.</p></div></div>
+        <section class="panel form-panel cloud-panel">
+          <div class="panel-heading"><div><p class="eyebrow">GERÄTEÜBERGREIFEND</p><h3>Private Cloud-Synchronisierung</h3></div></div>
+          <p id="cloud-status" class="cloud-status" role="status" aria-live="polite">Noch nicht eingerichtet. Bis zur Cloud-Anmeldung bleibt die lokale Speicherung aktiv.</p>
+          <form id="cloud-config-form" class="form-grid">
+            <label class="field"><span>Supabase-Projekt-URL</span><input id="cloud-project-url" type="url" autocomplete="url" placeholder="https://dein-projekt.supabase.co" required></label>
+            <label class="field"><span>Öffentlicher anon / publishable key</span><input id="cloud-public-key" type="password" autocomplete="off" placeholder="Öffentlicher Browser-Key, niemals service_role" required></label>
+            <div class="form-actions field-wide"><button class="button button-quiet" type="submit">Cloud-Verbindung speichern</button><span class="form-hint">URL und öffentlicher Schlüssel erhältst du in den Supabase-Projekteinstellungen.</span></div>
+          </form>
+          <form id="cloud-auth-form" class="form-grid">
+            <label class="field"><span>E-Mail</span><input id="cloud-email" type="email" autocomplete="username" required></label>
+            <label class="field"><span>Passwort</span><input id="cloud-password" type="password" autocomplete="current-password" minlength="8" required></label>
+            <div class="form-actions field-wide">
+              <button id="cloud-login-button" class="button button-primary" type="submit">Anmelden &amp; synchronisieren</button>
+              <button id="cloud-signup-button" class="button button-quiet" type="button">Konto anlegen</button>
+              <button id="cloud-sync-button" class="button button-primary" type="button" hidden>Jetzt synchronisieren</button>
+              <button id="cloud-logout-button" class="button button-quiet" type="button" hidden>Abmelden</button>
+              <span id="cloud-account-label" class="form-hint"></span>
+            </div>
+          </form>
+          <p class="form-hint">Vor der Nutzung einmalig den Inhalt der SQL-Datei im Supabase SQL Editor ausführen. Die Zugriffsregeln begrenzen Daten und Dateien auf das angemeldete Konto. Der Browser-Key ist öffentlich; verwende niemals einen service_role-Schlüssel.</p>
+          <a class="text-button" href="supabase-setup.sql" download>Supabase-Datenbankschema herunterladen →</a>
+        </section>
         <div class="backup-grid">
           <section class="panel backup-card">
             <span class="backup-icon" aria-hidden="true">↓</span><h3>Vollständiger Export</h3>
@@ -207,10 +230,10 @@
             <span id="import-filename" class="form-hint">Noch keine Datei ausgewählt</span>
           </section>
         </div>
-        <div class="notice notice-warm"><strong>Speichergrenzen:</strong> Daten sind nur in diesem Browserprofil auf diesem Gerät vorhanden; es gibt keine Cloud-Synchronisierung oder Mehrbenutzerfunktion. Browserdaten können gelöscht werden und Speicherquoten sind browserabhängig. JSON-Dateien können wegen eingebetteter Dateiinhalte groß sein. Sichere regelmäßig an einem getrennten, geeigneten Ort und teste die Wiederherstellung.</div>
+        <div class="notice notice-warm"><strong>Speichergrenzen:</strong> Ohne Cloud-Anmeldung sind Daten nur in diesem Browserprofil gespeichert. Mit Supabase liegen sie zusätzlich im privaten Konto-Speicher; Tarif, Speicher- und Dateigrößenlimits gelten weiterhin. JSON-Dateien können wegen eingebetteter Dateiinhalte groß sein. Sichere regelmäßig zusätzlich per JSON-Export.</div>
       </section>
 
-      <footer class="app-footer"><span>ROADSTER · PROJEKTVERWALTUNG</span><span>Lokale Daten · keine technischen Freigaben</span></footer>
+      <footer class="app-footer"><span>ROADSTER · PROJEKTVERWALTUNG</span><span>Lokaler Cache · optionale Cloud · keine technischen Freigaben</span></footer>
     </main>
   </div>
 

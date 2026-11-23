@@ -3,6 +3,13 @@
 const DB_NAME = "roadster-karosserieprojekt";
 const DB_VERSION = 1;
 const STORE_NAMES = ["project", "parts", "prints", "assemblies", "files", "journal", "changes"];
+const CLOUD_CONFIG_KEY = "roadster-cloud-config";
+const CLOUD_META_KEY = "roadster-cloud-sync-meta";
+const LAST_VIEW_KEY = "roadster-last-view";
+const LOCAL_CHANGE_KEY = "roadster-local-change-id";
+const CLOUD_TABLE = "roadster_project_state";
+const CLOUD_BUCKET = "roadster-files";
+const CLOUD_POLL_INTERVAL = 15000;
 const UNASSIGNED_AREA_ID = "__unassigned__";
 const DEFAULT_AREAS = [
   { id: "front", name: "Front", order: 1 },
@@ -33,6 +40,18 @@ const VIEW_TITLES = {
 let db;
 let projectData;
 let cached = { parts: [], prints: [], assemblies: [], files: [], journal: [], changes: [] };
+let cloudClient = null;
+let cloudUser = null;
+let cloudChannel = null;
+let cloudRemoteUpdatedAt = null;
+let cloudRemoteFileIds = new Set();
+let cloudSyncTimer = null;
+let cloudPollTimer = null;
+let cloudSyncRunning = false;
+let cloudSyncAgain = false;
+let cloudApplyingRemote = false;
+let cloudConflictOpen = false;
+let currentView = "ueberblick";
 const $ = (id) => document.getElementById(id);
 
 function makeId(prefix) {
@@ -127,7 +146,10 @@ function transaction(storeNames, mode, action) {
       reject(error);
       return;
     }
-    tx.oncomplete = () => resolve(result);
+    tx.oncomplete = () => {
+      resolve(result);
+      if (mode === "readwrite" && !cloudApplyingRemote) markCloudDirty();
+    };
     tx.onerror = () => reject(tx.error || new Error("Die lokale Datenänderung ist fehlgeschlagen."));
     tx.onabort = () => reject(tx.error || new Error("Die lokale Datenänderung wurde abgebrochen."));
   });
@@ -164,6 +186,471 @@ async function loadData() {
     parts: snapshot.parts, prints: snapshot.prints, assemblies: snapshot.assemblies,
     files: snapshot.files, journal: snapshot.journal, changes: snapshot.changes
   };
+}
+
+function getCloudConfig() {
+  const raw = localStorage.getItem(CLOUD_CONFIG_KEY);
+  return raw ? JSON.parse(raw) : null;
+}
+
+function getCloudMeta() {
+  const raw = localStorage.getItem(CLOUD_META_KEY);
+  return raw ? JSON.parse(raw) : {};
+}
+
+function saveCloudMeta(values) {
+  localStorage.setItem(CLOUD_META_KEY, JSON.stringify({ ...getCloudMeta(), ...values }));
+}
+
+function updateCloudStatus(message, state) {
+  $("cloud-status").textContent = message;
+  $("cloud-status").dataset.state = state || "local";
+  $("cloud-status-dot").dataset.state = state || "local";
+  $("cloud-status-short").textContent = state === "synced" ? "Cloud gespeichert"
+    : state === "saving" ? "Synchronisierung läuft"
+      : state === "error" ? "Cloud-Sync Fehler"
+        : cloudUser ? "Cloud angemeldet" : "Nur lokal";
+}
+
+function renderCloudControls() {
+  const config = getCloudConfig();
+  $("cloud-project-url").value = config?.url || "";
+  $("cloud-public-key").value = config?.key || "";
+  $("cloud-auth-form").hidden = !cloudClient;
+  $("cloud-login-button").hidden = Boolean(cloudUser);
+  $("cloud-signup-button").hidden = Boolean(cloudUser);
+  $("cloud-sync-button").hidden = !cloudUser;
+  $("cloud-logout-button").hidden = !cloudUser;
+  $("cloud-account-label").textContent = cloudUser ? `Angemeldet als ${cloudUser.email}` : "";
+  $("cloud-email").value = cloudUser?.email || "";
+  $("cloud-password").value = "";
+}
+
+function markCloudDirty() {
+  if (cloudApplyingRemote) return;
+  try {
+    const changeId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(LOCAL_CHANGE_KEY, changeId);
+    if (cloudUser) {
+      saveCloudMeta({ userId: cloudUser.id, dirty: true });
+      updateCloudStatus("Lokal gespeichert; Cloud-Synchronisierung wird ausgeführt.", "saving");
+      scheduleCloudSync();
+    }
+  } catch (error) {
+    updateCloudStatus(`Lokal gespeichert, Cloud-Status konnte nicht gesichert werden: ${error.message}`, "error");
+  }
+}
+
+function scheduleCloudSync() {
+  if (!cloudUser || !cloudClient) return;
+  window.clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = window.setTimeout(() => {
+    syncLocalToCloud().catch((error) => {
+      updateCloudStatus(`Lokal gespeichert, Cloud-Sync fehlgeschlagen: ${error.message}`, "error");
+      showAlert(`Die lokale Änderung ist gespeichert, aber die Cloud-Synchronisierung ist fehlgeschlagen: ${error.message}`);
+    });
+  }, 500);
+}
+
+async function readDatabaseSnapshot() {
+  const entries = await Promise.all(STORE_NAMES.map(async (name) => [name, await getAll(name)]));
+  return Object.fromEntries(entries);
+}
+
+function hasRealProjectData(snapshot) {
+  return snapshot.parts.some((item) => !item.isExample)
+    || snapshot.prints.some((item) => !item.isExample)
+    || snapshot.assemblies.some((item) => !item.isExample)
+    || snapshot.files.some((item) => !item.isExample)
+    || snapshot.journal.length > 0;
+}
+
+function makeCloudPayload(snapshot) {
+  const project = snapshot.project[0];
+  if (!project) throw new Error("Projektstammdaten fehlen; Cloud-Sync wurde abgebrochen.");
+  return {
+    version: 1,
+    project,
+    parts: snapshot.parts,
+    prints: snapshot.prints,
+    assemblies: snapshot.assemblies,
+    files: snapshot.files.map((file) => {
+      const { blob, ...metadata } = file;
+      return { ...metadata, storagePath: `${cloudUser.id}/${file.id}` };
+    }),
+    journal: snapshot.journal,
+    changes: snapshot.changes,
+    lastView: VIEW_TITLES[currentView] ? currentView : "ueberblick"
+  };
+}
+
+function validateCloudPayload(payload) {
+  const requiredArrays = ["parts", "prints", "assemblies", "files", "journal", "changes"];
+  if (!payload || payload.version !== 1 || !payload.project || payload.project.id !== "main"
+      || requiredArrays.some((name) => !Array.isArray(payload[name]))) {
+    throw new Error("Der Cloud-Datensatz hat ein unbekanntes oder unvollständiges Format.");
+  }
+  if (payload.lastView && !VIEW_TITLES[payload.lastView]) {
+    throw new Error("Der gespeicherte App-Bereich in der Cloud ist ungültig.");
+  }
+  for (const file of payload.files) {
+    if (!file || typeof file.id !== "string" || typeof file.name !== "string"
+        || !Number.isInteger(file.size) || file.size < 0
+        || file.storagePath !== `${cloudUser.id}/${file.id}`) {
+      throw new Error("Eine Datei in der Cloud-Sicherung hat ungültige Metadaten.");
+    }
+  }
+}
+
+async function fetchCloudRow() {
+  const { data, error } = await cloudClient.from(CLOUD_TABLE)
+    .select("payload,updated_at")
+    .eq("user_id", cloudUser.id)
+    .maybeSingle();
+  if (error) throw new Error(`Cloud-Daten konnten nicht gelesen werden: ${error.message}`);
+  return data;
+}
+
+async function restoreCloudRow(row) {
+  validateCloudPayload(row.payload);
+  const files = [];
+  for (const file of row.payload.files) {
+    const { data, error } = await cloudClient.storage.from(CLOUD_BUCKET).download(file.storagePath);
+    if (error) throw new Error(`Cloud-Datei ${file.name} konnte nicht geladen werden: ${error.message}`);
+    if (!(data instanceof Blob) || data.size !== file.size) {
+      throw new Error(`Die Größe der Cloud-Datei ${file.name} stimmt nicht mit den Metadaten überein.`);
+    }
+    const { storagePath, ...metadata } = file;
+    files.push({ ...metadata, blob: data });
+  }
+  const records = {
+    project: [row.payload.project],
+    parts: row.payload.parts,
+    prints: row.payload.prints,
+    assemblies: row.payload.assemblies,
+    files,
+    journal: row.payload.journal,
+    changes: row.payload.changes
+  };
+  cloudApplyingRemote = true;
+  try {
+    await transaction(STORE_NAMES, "readwrite", (tx) => {
+      STORE_NAMES.forEach((name) => tx.objectStore(name).clear());
+      STORE_NAMES.forEach((name) => records[name].forEach((record) => tx.objectStore(name).put(record)));
+    });
+  } finally {
+    cloudApplyingRemote = false;
+  }
+  cloudRemoteUpdatedAt = row.updated_at;
+  cloudRemoteFileIds = new Set(row.payload.files.map((file) => file.id));
+  saveCloudMeta({
+    userId: cloudUser.id,
+    remoteUpdatedAt: row.updated_at,
+    dirty: false,
+    lastLocalChangeId: localStorage.getItem(LOCAL_CHANGE_KEY)
+  });
+  localStorage.setItem(LAST_VIEW_KEY, row.payload.lastView || "ueberblick");
+  await refresh();
+  navigate(row.payload.lastView || "ueberblick", false);
+  updateCloudStatus(`Cloud-Stand übernommen · ${formatDate(row.updated_at, true)}`, "synced");
+}
+
+async function connectCloudAccount(user) {
+  cloudUser = user;
+  renderCloudControls();
+  updateCloudStatus("Cloud-Konto wird abgeglichen …", "saving");
+  stopCloudUpdates();
+  const snapshot = await readDatabaseSnapshot();
+  let meta = getCloudMeta();
+  const localChangeId = localStorage.getItem(LOCAL_CHANGE_KEY);
+  if (meta.userId === user.id && (meta.dirty || meta.lastLocalChangeId !== localChangeId)) {
+    meta = { ...meta, dirty: true };
+    saveCloudMeta({ userId: user.id, dirty: true });
+  }
+  const row = await fetchCloudRow();
+  if (!row) {
+    cloudRemoteUpdatedAt = null;
+    cloudRemoteFileIds = new Set();
+    saveCloudMeta({
+      userId: user.id,
+      remoteUpdatedAt: null,
+      dirty: true,
+      lastLocalChangeId: localChangeId
+    });
+    await syncLocalToCloud();
+  } else if (meta.userId !== user.id && hasRealProjectData(snapshot)) {
+    const confirmed = window.confirm("Für dieses Konto gibt es bereits einen Cloud-Stand. Soll dieser Stand die vorhandenen lokalen Projektdaten ersetzen? Exportiere lokale Daten vorher über JSON-Sicherung.");
+    if (!confirmed) {
+      await cloudClient.auth.signOut();
+      cloudUser = null;
+      renderCloudControls();
+      updateCloudStatus("Cloud-Anmeldung abgebrochen; lokale Daten bleiben erhalten.", "local");
+      return;
+    }
+    await restoreCloudRow(row);
+  } else if (meta.userId === user.id && meta.dirty && meta.remoteUpdatedAt
+      && meta.remoteUpdatedAt !== row.updated_at) {
+    const useCloud = window.confirm("Ein anderes Gerät hat neuere Cloud-Daten gespeichert. OK übernimmt den Cloud-Stand und ersetzt ungesicherte lokale Änderungen; Abbrechen behält dieses Gerät und schreibt dessen Stand in die Cloud.");
+    if (useCloud) await restoreCloudRow(row);
+    else {
+      cloudRemoteUpdatedAt = row.updated_at;
+      cloudRemoteFileIds = new Set(row.payload.files.map((file) => file.id));
+      saveCloudMeta({ userId: user.id, remoteUpdatedAt: row.updated_at, dirty: true });
+      await syncLocalToCloud();
+    }
+  } else if (meta.userId !== user.id || meta.remoteUpdatedAt !== row.updated_at) {
+    await restoreCloudRow(row);
+  } else {
+    cloudRemoteUpdatedAt = row.updated_at;
+    cloudRemoteFileIds = new Set(row.payload.files.map((file) => file.id));
+    updateCloudStatus(`Cloud synchronisiert · ${formatDate(row.updated_at, true)}`, "synced");
+    if (meta.dirty) await syncLocalToCloud();
+  }
+  startCloudUpdates();
+}
+
+function stopCloudUpdates() {
+  window.clearInterval(cloudPollTimer);
+  cloudPollTimer = null;
+  if (cloudChannel && cloudClient) {
+    cloudClient.removeChannel(cloudChannel).catch((error) => console.error("Cloud-Updates konnten nicht getrennt werden:", error));
+  }
+  cloudChannel = null;
+}
+
+function startCloudUpdates() {
+  stopCloudUpdates();
+  cloudPollTimer = window.setInterval(() => {
+    checkCloudForUpdates().catch((error) => updateCloudStatus(`Cloud-Abgleich fehlgeschlagen: ${error.message}`, "error"));
+  }, CLOUD_POLL_INTERVAL);
+  cloudChannel = cloudClient.channel(`roadster-sync-${cloudUser.id}`)
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: CLOUD_TABLE,
+      filter: `user_id=eq.${cloudUser.id}`
+    }, () => {
+      checkCloudForUpdates().catch((error) => updateCloudStatus(`Cloud-Abgleich fehlgeschlagen: ${error.message}`, "error"));
+    })
+    .subscribe((status) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        updateCloudStatus("Live-Updates nicht verfügbar; regelmäßiger Cloud-Abgleich bleibt aktiv.", "saving");
+      }
+    });
+}
+
+async function syncLocalToCloud() {
+  if (!cloudUser || !cloudClient) return;
+  if (cloudSyncRunning) {
+    cloudSyncAgain = true;
+    return;
+  }
+  cloudSyncRunning = true;
+  try {
+    do {
+      cloudSyncAgain = false;
+      await syncLocalSnapshotOnce();
+    } while (cloudSyncAgain && cloudUser);
+  } finally {
+    cloudSyncRunning = false;
+  }
+}
+
+async function syncLocalSnapshotOnce() {
+  if (!navigator.onLine) {
+    updateCloudStatus("Offline: Änderungen bleiben lokal und werden bei Verbindung übertragen.", "saving");
+    return;
+  }
+  let row = await fetchCloudRow();
+  const meta = getCloudMeta();
+  if (row && row.updated_at !== meta.remoteUpdatedAt) {
+    if (!meta.dirty) {
+      await restoreCloudRow(row);
+      return;
+    }
+    if (cloudConflictOpen) return;
+    cloudConflictOpen = true;
+    const useCloud = window.confirm("Ein anderes Gerät hat neuere Cloud-Daten gespeichert. OK übernimmt den Cloud-Stand und ersetzt ungesicherte lokale Änderungen; Abbrechen behält dieses Gerät und schreibt dessen Stand in die Cloud.");
+    cloudConflictOpen = false;
+    if (useCloud) {
+      await restoreCloudRow(row);
+      return;
+    }
+    cloudRemoteUpdatedAt = row.updated_at;
+    cloudRemoteFileIds = new Set(row.payload.files.map((file) => file.id));
+    saveCloudMeta({ userId: cloudUser.id, remoteUpdatedAt: row.updated_at, dirty: true });
+  }
+
+  const snapshot = await readDatabaseSnapshot();
+  const payload = makeCloudPayload(snapshot);
+  const existingFileIds = new Set((row?.payload?.files || []).map((file) => file.id));
+  const uploadedPaths = [];
+  try {
+    for (const file of snapshot.files) {
+      if (existingFileIds.has(file.id)) continue;
+      if (!(file.blob instanceof Blob)) throw new Error(`Dateiinhalt fehlt bei ${file.name}; Cloud-Sync abgebrochen.`);
+      const path = `${cloudUser.id}/${file.id}`;
+      const { error } = await cloudClient.storage.from(CLOUD_BUCKET)
+        .upload(path, file.blob, { upsert: true, contentType: file.mimeType || "application/octet-stream" });
+      if (error) throw new Error(`Datei ${file.name} konnte nicht in die Cloud geladen werden: ${error.message}`);
+      uploadedPaths.push(path);
+    }
+    const values = { user_id: cloudUser.id, payload, updated_at: new Date().toISOString() };
+    let saved;
+    if (row) {
+      const { data, error } = await cloudClient.from(CLOUD_TABLE).update(values)
+        .eq("user_id", cloudUser.id).eq("updated_at", row.updated_at)
+        .select("updated_at").maybeSingle();
+      if (error) throw new Error(`Cloud-Stand konnte nicht gespeichert werden: ${error.message}`);
+      saved = data;
+      if (!saved) {
+        row = await fetchCloudRow();
+        if (!row) throw new Error("Der Cloud-Datensatz wurde während der Synchronisierung entfernt.");
+        const useCloud = window.confirm("Ein anderes Gerät hat gleichzeitig gespeichert. OK übernimmt dessen Cloud-Stand; Abbrechen überschreibt ihn mit diesem Gerät.");
+        if (useCloud) {
+          await restoreCloudRow(row);
+          return;
+        }
+        const retry = await cloudClient.from(CLOUD_TABLE).update(values)
+          .eq("user_id", cloudUser.id).eq("updated_at", row.updated_at)
+          .select("updated_at").maybeSingle();
+        if (retry.error) throw new Error(`Cloud-Stand konnte nach dem Konflikt nicht gespeichert werden: ${retry.error.message}`);
+        saved = retry.data;
+        if (!saved) throw new Error("Es gab erneut eine gleichzeitige Cloud-Änderung. Bitte synchronisiere noch einmal.");
+      }
+    } else {
+      const { data, error } = await cloudClient.from(CLOUD_TABLE).insert(values)
+        .select("updated_at").single();
+      if (error) throw new Error(`Erster Cloud-Stand konnte nicht angelegt werden: ${error.message}`);
+      saved = data;
+    }
+    cloudRemoteUpdatedAt = saved.updated_at;
+    cloudRemoteFileIds = new Set(payload.files.map((file) => file.id));
+    saveCloudMeta({
+      userId: cloudUser.id,
+      remoteUpdatedAt: saved.updated_at,
+      dirty: false,
+      lastLocalChangeId: localStorage.getItem(LOCAL_CHANGE_KEY)
+    });
+    updateCloudStatus(`Cloud gespeichert · ${formatDate(saved.updated_at, true)}`, "synced");
+  } catch (error) {
+    if (uploadedPaths.length) {
+      const { error: cleanupError } = await cloudClient.storage.from(CLOUD_BUCKET).remove(uploadedPaths);
+      if (cleanupError) console.error("Temporary cloud files could not be cleaned up:", cleanupError);
+    }
+    throw error;
+  }
+}
+
+async function checkCloudForUpdates() {
+  if (!cloudUser || !cloudClient || cloudSyncRunning || !navigator.onLine) return;
+  const row = await fetchCloudRow();
+  if (!row) {
+    if (cloudRemoteUpdatedAt) throw new Error("Der Cloud-Datensatz fehlt. Lokale Daten wurden nicht gelöscht.");
+    return;
+  }
+  if (row.updated_at === cloudRemoteUpdatedAt) return;
+  const meta = getCloudMeta();
+  if (!meta.dirty) {
+    await restoreCloudRow(row);
+    return;
+  }
+  if (cloudConflictOpen) return;
+  cloudConflictOpen = true;
+  const useCloud = window.confirm("Ein anderes Gerät hat neuere Cloud-Daten gespeichert. OK übernimmt den Cloud-Stand und ersetzt ungesicherte lokale Änderungen; Abbrechen behält dieses Gerät und schreibt dessen Stand in die Cloud.");
+  cloudConflictOpen = false;
+  if (useCloud) await restoreCloudRow(row);
+  else {
+    cloudRemoteUpdatedAt = row.updated_at;
+    cloudRemoteFileIds = new Set(row.payload.files.map((file) => file.id));
+    saveCloudMeta({ userId: cloudUser.id, remoteUpdatedAt: row.updated_at, dirty: true });
+    await syncLocalToCloud();
+  }
+}
+
+async function initializeCloud() {
+  const config = getCloudConfig();
+  renderCloudControls();
+  if (!config) {
+    updateCloudStatus("Noch nicht eingerichtet. Bis zur Cloud-Anmeldung bleibt die lokale Speicherung aktiv.", "local");
+    return;
+  }
+  if (!window.supabase || typeof window.supabase.createClient !== "function") {
+    updateCloudStatus("Supabase-Client konnte nicht geladen werden. Prüfe Internetverbindung oder CDN-Zugriff.", "error");
+    return;
+  }
+  cloudClient = window.supabase.createClient(config.url, config.key, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
+  renderCloudControls();
+  const { data, error } = await cloudClient.auth.getSession();
+  if (error) throw new Error(`Supabase-Sitzung konnte nicht gelesen werden: ${error.message}`);
+  if (data.session?.user) await connectCloudAccount(data.session.user);
+  else updateCloudStatus("Cloud-Verbindung gespeichert. Melde dich mit deinem Konto an.", "local");
+}
+
+async function saveCloudConfig(event) {
+  event.preventDefault();
+  const url = $("cloud-project-url").value.trim().replace(/\/+$/, "");
+  const key = $("cloud-public-key").value.trim();
+  if (!url || !key) throw new Error("Bitte Projekt-URL und öffentlichen Schlüssel eingeben.");
+  let parsedUrl;
+  try { parsedUrl = new URL(url); } catch (_) { throw new Error("Die Supabase-Projekt-URL ist ungültig."); }
+  if (parsedUrl.protocol !== "https:" && parsedUrl.hostname !== "localhost") {
+    throw new Error("Die Supabase-Projekt-URL muss HTTPS verwenden.");
+  }
+  localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify({ url, key }));
+  stopCloudUpdates();
+  cloudClient = null;
+  cloudUser = null;
+  cloudRemoteUpdatedAt = null;
+  cloudRemoteFileIds = new Set();
+  await initializeCloud();
+  showAlert("Cloud-Verbindung lokal gespeichert. Melde dich an oder lege ein Konto an.", true);
+}
+
+async function signInToCloud(event) {
+  event.preventDefault();
+  if (!cloudClient) throw new Error("Bitte zuerst die Supabase-Projektverbindung speichern.");
+  const { data, error } = await cloudClient.auth.signInWithPassword({
+    email: $("cloud-email").value.trim(),
+    password: $("cloud-password").value
+  });
+  if (error) throw new Error(`Anmeldung fehlgeschlagen: ${error.message}`);
+  await connectCloudAccount(data.user);
+  $("cloud-password").value = "";
+}
+
+async function createCloudAccount() {
+  if (!cloudClient) throw new Error("Bitte zuerst die Supabase-Projektverbindung speichern.");
+  if (!$("cloud-auth-form").reportValidity()) return;
+  const { data, error } = await cloudClient.auth.signUp({
+    email: $("cloud-email").value.trim(),
+    password: $("cloud-password").value
+  });
+  if (error) throw new Error(`Konto konnte nicht angelegt werden: ${error.message}`);
+  $("cloud-password").value = "";
+  if (data.session?.user) await connectCloudAccount(data.session.user);
+  else showAlert("Konto angelegt. Bestätige zuerst die E-Mail-Adresse und melde dich danach an.", true);
+}
+
+async function signOutFromCloud() {
+  if (cloudClient) {
+    const { error } = await cloudClient.auth.signOut();
+    if (error) throw new Error(`Abmeldung fehlgeschlagen: ${error.message}`);
+  }
+  cloudUser = null;
+  cloudRemoteUpdatedAt = null;
+  stopCloudUpdates();
+  renderCloudControls();
+  updateCloudStatus("Abgemeldet. Die lokale Kopie bleibt auf diesem Gerät erhalten.", "local");
+}
+
+async function synchronizeNow() {
+  if (!cloudUser) throw new Error("Bitte zuerst anmelden.");
+  await checkCloudForUpdates();
+  if (getCloudMeta().dirty) await syncLocalToCloud();
+  else updateCloudStatus("Cloud und dieses Gerät sind synchron.", "synced");
 }
 
 function seedRecords() {
@@ -643,8 +1130,10 @@ function renderChanges() {
     <time datetime="${escapeHtml(item.at)}">${escapeHtml(formatDate(item.at, true))}</time></div>`).join("");
 }
 
-function navigate(viewName) {
+function navigate(viewName, persist) {
   if (!VIEW_TITLES[viewName]) return;
+  const changedView = currentView !== viewName;
+  currentView = viewName;
   document.querySelectorAll(".view").forEach((view) => {
     const active = view.id === `view-${viewName}`;
     view.classList.toggle("active", active);
@@ -659,6 +1148,10 @@ function navigate(viewName) {
   $("page-title").textContent = VIEW_TITLES[viewName];
   window.history.replaceState(null, "", `#${viewName}`);
   window.scrollTo({ top: 0, behavior: "smooth" });
+  if (persist !== false) {
+    localStorage.setItem(LAST_VIEW_KEY, viewName);
+    if (changedView) markCloudDirty();
+  }
 }
 
 async function startArea(value) {
@@ -1372,6 +1865,11 @@ function bindEvents() {
     if (savePart) runSafely(() => saveFilePart(savePart.dataset.saveFilePart));
     if (saveArea) runSafely(() => saveFileArea(saveArea.dataset.saveFileArea));
   });
+  $("cloud-config-form").addEventListener("submit", (event) => runSafely(() => saveCloudConfig(event)));
+  $("cloud-auth-form").addEventListener("submit", (event) => runSafely(() => signInToCloud(event)));
+  $("cloud-signup-button").addEventListener("click", () => runSafely(createCloudAccount));
+  $("cloud-sync-button").addEventListener("click", () => runSafely(synchronizeNow));
+  $("cloud-logout-button").addEventListener("click", () => runSafely(signOutFromCloud));
   $("export-button").addEventListener("click", () => runSafely(exportBackup));
   $("import-input").addEventListener("change", (event) => runSafely(async () => {
     const file = event.target.files[0];
@@ -1380,6 +1878,13 @@ function bindEvents() {
     await importBackup(file);
     event.target.value = "";
   }));
+  window.addEventListener("online", () => {
+    if (cloudUser && getCloudMeta().dirty) scheduleCloudSync();
+    else if (cloudUser) runSafely(checkCloudForUpdates);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && cloudUser) runSafely(checkCloudForUpdates);
+  });
 }
 
 async function runSafely(action) {
@@ -1398,8 +1903,14 @@ async function startApp() {
     await ensureProjectAreas();
     bindEvents();
     await refresh();
-    const initialView = window.location.hash.slice(1);
-    navigate(VIEW_TITLES[initialView] ? initialView : "ueberblick");
+    const hashView = window.location.hash.slice(1);
+    const savedView = localStorage.getItem(LAST_VIEW_KEY);
+    navigate(VIEW_TITLES[hashView] ? hashView : VIEW_TITLES[savedView] ? savedView : "ueberblick");
+    try {
+      await initializeCloud();
+    } catch (error) {
+      updateCloudStatus(`Cloud-Sync nicht verfügbar: ${error.message}. Lokale Speicherung bleibt aktiv.`, "error");
+    }
   } catch (error) {
     console.error(error);
     showAlert(`App konnte nicht initialisiert werden: ${error.message}`);

@@ -13,7 +13,7 @@ Eine deutschsprachige, statische Browser-App zur Verwaltung eines Smart-Roadster
 
 3. Rufe `http://localhost:8000` auf.
 
-Die App verwendet ausschließlich HTML, CSS und JavaScript ohne Build-Schritt oder Paketinstallation. Projektdaten und Dateiinhalte werden in der IndexedDB dieses Browserprofils gespeichert. Browser mit deaktiviertem Speicher oder ohne IndexedDB können die App nicht verwenden.
+Die App verwendet HTML, CSS und JavaScript ohne Build-Schritt oder Paketinstallation. Eine lokale IndexedDB hält den sofort gespeicherten Arbeitsstand. Für geräteübergreifende Synchronisierung kann ein privates Supabase-Projekt verbunden werden; der Supabase-JavaScript-Client wird dafür über ein CDN geladen.
 
 ## Bereiche
 
@@ -28,6 +28,19 @@ Die App verwendet ausschließlich HTML, CSS und JavaScript ohne Build-Schritt od
 - **Änderungsprotokoll:** lokale, nicht personenbezogen verifizierte Ereignishistorie.
 - **JSON-Sicherung:** vollständige Projektdaten exportieren oder eine geprüfte Sicherung wiederherstellen.
 
+## Geräteübergreifende Cloud-Synchronisierung
+
+Die lokale Speicherung funktioniert ohne Cloud-Konto. Für denselben Projektstand auf mehreren Geräten:
+
+1. Erstelle ein Supabase-Projekt.
+2. Öffne in Supabase den **SQL Editor**, kopiere den Inhalt von `supabase-setup.sql` hinein und führe ihn aus. Er legt eine nutzergebundene Datentabelle, einen privaten Dateispeicher, Zugriffsschutz (RLS) und Live-Updates an.
+3. Öffne in der App **JSON-Sicherung → Private Cloud-Synchronisierung**. Trage die **Project URL** und den öffentlichen **anon/publishable key** ein. Verwende niemals den `service_role`-Schlüssel.
+4. Lege in der App ein Konto an und melde dich mit demselben Konto auf jedem weiteren Gerät an.
+
+Änderungen werden lokal sofort gesichert und im verbundenen Konto automatisch in die Cloud übertragen. Dateien liegen in einem privaten Supabase-Storage-Bucket; Bereiche, Queue-Status, letzter App-Bereich, Teile und Journal werden in der geschützten Projekttabelle gespeichert. Realtime-Updates übertragen Änderungen anderer Geräte; ein regelmäßiger Abruf dient als Rückfall. Bei konkurrierenden Offline-Änderungen fragt die App, ob der Cloud-Stand oder dieses Gerät Vorrang hat. Offline bleibt der lokale Stand erhalten und wird bei Wiederverbindung synchronisiert. Die URL und der öffentliche Schlüssel müssen auf jedem Gerät einmal eingetragen werden. Cloud-Speicher- und Dateigrößenlimits hängen vom Supabase-Tarif ab.
+
+Die Website ist öffentlich erreichbar, Projektdaten sind aber durch Anmeldung und Row-Level-Security auf das jeweilige Supabase-Konto beschränkt. Zugangstoken bleiben im Browserprofil. Verwende ein eigenes Konto und teile es nicht mit anderen Personen.
+
 ## Beispieldaten und fachliche Grenzen
 
 Beim ersten Start werden Beispielteile, eine Beispielbaugruppe und ein Beispieldrucklauf angelegt. Sie sind in Oberfläche und Datensatz als **BEISPIEL** markiert und enthalten keine realen Teilebezeichnungen, Geometrien, Maße, Werkstoffe, Druckparameter oder Montagefreigaben. Bearbeite oder entferne sie nicht als Tatsachenquelle; lege echte Projektdaten selbst an.
@@ -36,17 +49,18 @@ Die App leitet keine technischen Werte, Bauteilfunktionen, Einbauorte oder Baute
 
 ## Daten speichern und sichern
 
-- IndexedDB hält strukturierte Projektdaten und Datei-`Blob`s im aktuellen Browserprofil. Es gibt keine Anmeldung, Cloud-Synchronisierung, Mehrbenutzerfunktion oder serverseitige Sicherung.
-- Browserdaten können gelöscht werden; Speicherquoten und Speicherbereinigung sind browserabhängig. Verwende die JSON-Sicherung regelmäßig und bewahre sie getrennt vom Browserprofil auf.
+- Ohne Cloud-Anmeldung hält IndexedDB strukturierte Projektdaten und Datei-`Blob`s nur im aktuellen Browserprofil. Browserdaten können gelöscht werden und Speicherquoten sind browserabhängig.
+- Mit Cloud-Anmeldung werden Änderungen zusätzlich in das persönliche Supabase-Konto synchronisiert. Offline vorgenommene Änderungen bleiben lokal und werden nach Wiederverbindung übertragen.
 - Der JSON-Export enthält alle Tabellen und Dateiinhalte Base64-kodiert. Dadurch kann die Sicherungsdatei deutlich größer als die Originaldateien werden.
 - Der Import **ersetzt den gesamten lokalen Datenbestand**. Exportiere bestehende Daten vorher. Die App prüft das Format, eindeutige Datensatz-IDs und grundlegende Dateiinformationen, bevor sie die Wiederherstellung transaktional schreibt.
-- Es gibt keine Verschlüsselung der Exportdatei. Bewahre Projektdaten und Sicherungen entsprechend ihrem Inhalt geschützt auf.
+- Die exportierte JSON-Datei ist nicht verschlüsselt. Bewahre sie entsprechend ihrem Inhalt geschützt auf; für unabhängige Sicherungen zusätzlich regelmäßig einen JSON-Export erstellen.
 
 ## Dateien
 
 - `index.html` – deutsche Navigation und Anwendungsbereiche
 - `style.css` – responsive Gestaltung und barrierebewusste Bedienelemente
-- `script.js` – IndexedDB, Projektabläufe, Druckjournal und Sicherung/Wiederherstellung
+- `script.js` – IndexedDB, Projektabläufe, Druckjournal, Cloud-Synchronisierung und Sicherung/Wiederherstellung
+- `supabase-setup.sql` – Supabase-Tabellen, private Dateispeicherung und Zugriffsschutz
 
 ## Auf GitHub Pages veröffentlichen
 
@@ -54,4 +68,4 @@ Die App leitet keine technischen Werte, Bauteilfunktionen, Einbauorte oder Baute
 2. Wähle **Deploy from a branch**, den Branch `main` und `/(root)`.
 3. Speichere die Einstellung und öffne die angezeigte Pages-Adresse.
 
-Auf Pages bleiben die Daten im jeweiligen Browserprofil der Person, die die Seite nutzt. Eine Veröffentlichung stellt keine gemeinsame Projektdatenbank bereit.
+Ohne Supabase-Anmeldung bleiben Daten im jeweiligen Browserprofil. Mit konfiguriertem Supabase-Konto werden Projektdaten über die geschützte Cloud synchronisiert.
