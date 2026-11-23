@@ -3,336 +3,230 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#8f1d22">
-  <meta name="description" content="Ein einfacher, kostenloser Feuerwehr-Übungsplaner für den Browser.">
-  <title>Feuerwehr-Übungsplaner</title>
+  <meta name="theme-color" content="#183c35">
+  <meta name="description" content="Browserbasierte Projektverwaltung für ein Smart-Roadster-Karosserieprojekt.">
+  <title>Roadster Karosserieprojekt</title>
   <link rel="stylesheet" href="style.css">
-  <script src="equipment-catalog.js" defer></script>
   <script src="script.js" defer></script>
 </head>
 <body>
-  <header class="site-header">
-    <div class="header-inner">
-      <a class="brand" href="#planen" aria-label="Feuerwehr-Übungsplaner – Startseite">
-        <span class="brand-mark" aria-hidden="true">FW</span>
-        <span>Feuerwehr-<strong>Übungsplaner</strong></span>
-      </a>
-      <nav aria-label="Hauptnavigation">
-        <button class="nav-link active" type="button" data-view="planen" aria-current="page">Übung planen</button>
-        <button class="nav-link" type="button" data-view="gespeichert">Gespeicherte Übungen</button>
-        <button class="nav-link" type="button" data-view="geraetekunde">Fahrzeug- und Gerätekunde</button>
-      </nav>
+  <header class="topbar">
+    <a class="brand" href="#ueberblick" aria-label="Roadster Projekt – Übersicht">
+      <span class="brand-mark" aria-hidden="true">R</span>
+      <span><strong>ROADSTER</strong><small>Karosserieprojekt</small></span>
+    </a>
+    <div class="topbar-meta">
+      <span class="local-pill"><span aria-hidden="true"></span> Lokal auf diesem Gerät</span>
+      <button class="button button-quiet" type="button" data-view="sicherung">Sicherung</button>
     </div>
   </header>
 
-  <main class="page-container">
-    <section id="view-planen" class="view">
-      <div class="intro">
-        <p class="eyebrow">Planungshilfe für die Ausbildung</p>
-        <h1>Die nächste Übung gut vorbereiten</h1>
-        <p>Erstelle einen Ablauf mit rotierenden Aufgaben je Gruppe und sieh veröffentlichte Ausstattungsangaben direkt beim ausgewählten Fahrzeug – ohne unbelegte Normbeladung vorauszusetzen.</p>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Projektbereiche">
+      <p class="side-label">PROJEKT</p>
+      <nav class="side-nav">
+        <button class="nav-item active" type="button" data-view="ueberblick" aria-current="page"><span class="nav-icon" aria-hidden="true">⌂</span> Überblick</button>
+        <button class="nav-item" type="button" data-view="bereiche"><span class="nav-icon" aria-hidden="true">▤</span> Karosseriebereiche</button>
+        <button class="nav-item" type="button" data-view="teile"><span class="nav-icon" aria-hidden="true">▦</span> Teile</button>
+        <button class="nav-item" type="button" data-view="druckqueue"><span class="nav-icon" aria-hidden="true">▤</span> Druckqueue <span class="nav-count" id="queue-nav-count">0</span></button>
+        <button class="nav-item" type="button" data-view="journal"><span class="nav-icon" aria-hidden="true">◷</span> Druckjournal</button>
+        <button class="nav-item" type="button" data-view="baugruppen"><span class="nav-icon" aria-hidden="true">⊞</span> Baugruppen</button>
+        <button class="nav-item" type="button" data-view="dateien"><span class="nav-icon" aria-hidden="true">▧</span> Dateien &amp; Versionen</button>
+        <button class="nav-item" type="button" data-view="aenderungen"><span class="nav-icon" aria-hidden="true">↗</span> Änderungsprotokoll</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <p class="side-label">DATEN &amp; HINWEISE</p>
+        <button class="nav-item" type="button" data-view="sicherung"><span class="nav-icon" aria-hidden="true">⇧</span> JSON-Sicherung</button>
+        <p class="sidebar-note">Stilrichtung: Rosso Corsa, warmes Elfenbein und Werkstattgrün. Keine Markenassets oder technischen Angaben werden vorausgesetzt.</p>
       </div>
-      <div class="notice safety-banner"><strong>Nur als kontrolliertes Planspiel</strong>Alle Inhalte vor Durchführung fachlich und örtlich prüfen. Keine realen Gefahren, Einsatzhandlungen, Notrufe, Alarmierungen oder Einsatzkommunikation nachstellen.</div>
+    </aside>
 
-      <form id="planner-form" novalidate>
-        <div class="step-heading">
-          <div>
-            <p class="eyebrow" id="step-count">Schritt 1 von 4</p>
-            <h2 id="step-title">Übungsart und Szenario</h2>
+    <main class="main-content">
+      <div id="app-alert" class="alert" role="status" aria-live="polite" hidden></div>
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">SMART ROADSTER · KAROSSERIE</p>
+          <h1 id="page-title">Projektüberblick</h1>
+          <p class="page-subtitle">Teile, Fertigungsplanung und Dokumentation an einem Ort.</p>
+        </div>
+        <span class="project-status"><span aria-hidden="true"></span> Projekt lokal verwaltet</span>
+      </div>
+
+      <section id="view-ueberblick" class="view active" aria-labelledby="page-title">
+        <div class="hero-card">
+          <div class="hero-copy">
+            <p class="eyebrow eyebrow-light">PROJEKTIDENTITÄT</p>
+            <h2 id="project-name">Smart Roadster</h2>
+            <p>Karosserieprojekt mit gestalterischer Orientierung am Ferrari Dino 246 GTS. Technische Werte und Freigaben werden ausschließlich aus bestätigten Projektdaten übernommen.</p>
+            <button type="button" class="button button-light" data-view="teile">Teilebestand öffnen <span aria-hidden="true">→</span></button>
           </div>
-          <div class="progress-track" role="progressbar" aria-label="Fortschritt im Formular" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1">
-            <span id="progress-fill"></span>
+          <div class="hero-emblem" aria-hidden="true">
+            <span class="emblem-ring"><span>R</span></span>
+            <span class="emblem-caption">KAROSSERIE<br>PROJEKT</span>
           </div>
         </div>
 
-        <section class="form-step" data-step="0" aria-labelledby="step-title">
-          <div class="field">
-            <label for="scenarioId">1. Welches Szenario soll geplant werden? <span class="required-mark">(Pflichtfeld)</span></label>
-            <select id="scenarioId" name="scenarioId" required aria-describedby="scenarioId-error scenario-hint">
-              <option value="">Bitte auswählen</option>
-              <optgroup label="Brand und Rauch">
-                <option value="brand">Brand-/Rauchmeldung am Gebäude (z. B. Wohnung, Keller, Dach, Kleinbrand)</option>
-                <option value="brandmeldeanlage">Ausgelöste Brandmeldeanlage</option>
-                <option value="industriebrand">Brandmeldung im Gewerbe-/Industriebetrieb (z. B. Maschinenhalle)</option>
-                <option value="vegetationsbrand">Vegetations- oder Flächenbrand</option>
-                <option value="fahrzeugbrand">Brand an Pkw oder Lkw</option>
-                <option value="bahnbrand">Rauch-/Brandmeldung an Zug oder Schienenfahrzeug</option>
-              </optgroup>
-              <optgroup label="Verkehr und technische Hilfe">
-                <option value="verkehrsunfall">Verkehrsunfall, z. B. Pkw am Baum</option>
-                <option value="lkwunfall">Verkehrsunfall mit Lkw oder mehreren Fahrzeugen</option>
-                <option value="verkehrslenkung">Verkehrslenkung nach einem Verkehrsunfall (nur Planspiel)</option>
-                <option value="unwetter">Unwetterfolge, z. B. umgestürzter Baum</option>
-                <option value="oelspur">Ölspur, Straßenreinigung oder unklare Fahrbahnverunreinigung</option>
-                <option value="arbeitunfall">Arbeits-/Stromunfall oder technische Hilfeleistung</option>
-                <option value="tueröffnung">Eilige Türöffnung / unklare Lage hinter einer Tür</option>
-              </optgroup>
-              <optgroup label="Wasser und Unwetter">
-                <option value="hochwasser">Hochwasser oder Wasserschaden</option>
-                <option value="strassenueberflutung">Überflutete Straße nach Starkregen</option>
-              </optgroup>
-              <optgroup label="Personen, Tiere und Zusammenarbeit">
-                <option value="gefahrstoff">Unbekannter Stoff- oder Gefahrstoffhinweis</option>
-                <option value="personensuche">Vermisstenmeldung / Personensuche</option>
-                <option value="menschenrettung">Betreuung einer hilfebedürftigen Person</option>
-                <option value="firstresponder">First-Responder-Meldung / Übergabe im Planspiel</option>
-                <option value="rettungsdienst">Unterstützung des Rettungsdienstes / Rollenübergabe</option>
-                <option value="tiernotlage">Tiernotlage</option>
-              </optgroup>
-              <optgroup label="Planung, Technik und Kommunikation">
-                <option value="stromausfall">Stromausfall / technischer Ausfall</option>
-                <option value="wasserplanung">Ressourcen- und Versorgungsplanung</option>
-                <option value="lageerkundung">Unklare Lage und Informationsabgleich</option>
-                <option value="teamkommunikation">Teamkommunikation und Aufgabenverteilung</option>
-                <option value="geraetekunde">Material- und Gerätekunde</option>
-                <option value="ablaufplanung">Ablauf- und Übergabeplanung</option>
-              </optgroup>
-            </select>
-            <small class="field-error" id="scenarioId-error" aria-live="polite"></small>
-            <small class="field-hint" id="scenario-hint">Das sind Übungsthemen, keine offiziellen Alarmstichworte oder Alarmierungsstufen. Die Auswahl orientiert sich auch an veröffentlichten Kühbacher Einsatzmeldungen; konkrete frühere Einsatzlagen werden nicht übernommen.</small>
-          </div>
-          <div class="field">
-            <label for="scenarioDetails">Konkrete Szenendetails (optional)</label>
-            <textarea id="scenarioDetails" name="scenarioDetails" rows="2" aria-describedby="scenarioDetails-hint" placeholder="Zum Beispiel: Ein Uhu soll sich in einem Seil über einem Fluss verfangen haben."></textarea>
-            <small class="field-hint" id="scenarioDetails-hint">Wird als unbestätigte Planspiel-Angabe ins Alarmfax übernommen. Das Bild ergänzt nur erkannte Symbole, nicht zwingend jedes Detail. Es besteht aus wiederverwendbaren Vektorsymbolen, nicht aus einem KI-Foto; „Uhu + Seil + Fluss“ hat eine eigene Bildkomposition.</small>
-          </div>
-          <div class="field" id="fire-extent-field" hidden>
-            <label for="fireExtent">Symbolischer Brandumfang (optional)</label>
-            <select id="fireExtent" name="fireExtent" aria-describedby="fire-extent-hint">
-              <option value="">Nicht festgelegt – keine Flammen im Bild ergänzen</option>
-              <option value="small">Klein / örtlich begrenzt (Symbol)</option>
-              <option value="medium">Mittlerer Bildbereich (Symbol)</option>
-              <option value="large">Großer Bildbereich (Symbol)</option>
-            </select>
-            <small class="field-hint" id="fire-extent-hint">Nur eine frei gewählte, fiktive Bildvariante. Sie bestätigt weder Feuer noch tatsächliche Ausdehnung und ist keine Einschätzung oder Handlungsanweisung.</small>
-          </div>
-          <div class="field">
-            <label for="exerciseType">2. Welche Art Übung soll es sein? <span class="required-mark">(Pflichtfeld)</span></label>
-            <select id="exerciseType" name="exerciseType" required aria-describedby="exerciseType-error exercise-type-hint">
-              <option value="">Bitte auswählen</option>
-              <option value="einsatzablauf">Kompletter Einsatzablauf als Planspiel (Alarm bis Abschluss)</option>
-              <option value="theorie">Theorieübung mit passenden Lernquellen</option>
-              <option value="mixed">Gemischt: Theorie und anschließendes Planspiel</option>
-              <option value="kommunikation">Kommunikations- und Zusammenarbeitsübung</option>
-              <option value="material">Material- und Gerätekunde (Theorie)</option>
-            </select>
-            <small class="field-error" id="exerciseType-error" aria-live="polite"></small>
-            <small class="field-hint" id="exercise-type-hint">Auch „Einsatzablauf“ bleibt ein fiktives Planspiel: keine reale Anfahrt, Alarmierung, Funkkommunikation oder Gerätehandlung.</small>
-          </div>
-          <section id="unit-planning-fields" class="unit-planning" aria-label="Einheiten im Planspiel" hidden>
-            <p class="eyebrow">Nur für Einsatzablauf und gemischte Übung</p>
-            <fieldset class="unit-fieldset">
-              <legend>Welche Feuerwehren werden im Planspiel berücksichtigt?</legend>
-              <div class="unit-choice-grid">
-                <label><input type="checkbox" name="countyStation" value="aichach"> Freiwillige Feuerwehr Aichach</label>
-                <label><input type="checkbox" name="countyStation" value="kuehbach"> Freiwillige Feuerwehr Kühbach</label>
-                <label><input type="checkbox" name="countyStation" value="inchenhofen"> Freiwillige Feuerwehr Inchenhofen</label>
-                <label><input type="checkbox" name="countyStation" value="haslangkreit"> Freiwillige Feuerwehr Haslangkreit</label>
-                <label><input type="checkbox" name="countyStation" value="stockensau"> Freiwillige Feuerwehr Stockensau</label>
-                <label><input type="checkbox" name="countyStation" value="schoenbach"> Freiwillige Feuerwehr Ober-/Unterschönbach</label>
-                <label><input type="checkbox" name="countyStation" value="unterbernbach"> Freiwillige Feuerwehr Unterbernbach</label>
-                <label><input type="checkbox" name="countyStation" value="kbi"> Kreisbrandinspektion – KBI</label>
-                <label><input type="checkbox" name="countyStation" value="kbm"> Kreisbrandinspektion – KBM</label>
-              </div>
-              <small class="field-hint">Wähle zuerst eine Feuerwehr; darunter öffnet sich die Auswahl ihrer hinterlegten Fahrzeuge. KBI und KBM sind einzelne Führungsrollen. Nur ausdrücklich markierte Fahrzeuge werden übernommen.</small>
-            </fieldset>
-            <div id="county-unit-vehicle-selections" class="county-unit-selections" aria-live="polite"></div>
-            <section id="vehicle-equipment-planning" class="equipment-planning" aria-label="Fahrzeugbeladung und relevante Gerätekunde">
-              <h3>Fahrzeugbeladung und Gerätekunde</h3>
-              <p class="equipment-caveat"><strong>Belegte Fahrzeuglisten statt erfundener Normbeladung:</strong> Veröffentlichtes Aichacher Fahrzeugmaterial wird direkt beim konkreten Fahrzeug angezeigt. Die Angaben können veraltet oder unvollständig sein und sind keine Bestätigung der aktuellen Beladung. Für Fahrzeuge ohne verlässliche öffentliche Einzelliste wird keine Ausstattung angenommen; örtlich bestätigen. Zusätzliches Sondermaterial kannst du unten ergänzen.</p>
-              <div id="vehicle-equipment-editor" class="vehicle-equipment-editor"></div>
-              <div id="selected-equipment-overview" class="selected-equipment-overview" aria-live="polite"></div>
-            </section>
-            <p class="unit-data-warning"><strong>Unvollständige Kreisdaten:</strong> Eine vollständige aktuelle Fahrzeugliste aller Feuerwehren im Landkreis war in öffentlichen Quellen nicht verifizierbar. Hinterlegt sind Aichach, Inchenhofen sowie Kühbach und dessen Ortsteilwehren; KBI/KBM sind Führungsrollen. <a href="https://www.feuerwehr-aichach.de/feuerwehr/fuhrpark/aktuelle-fahrzeuge.html" target="_blank" rel="noopener noreferrer">Fahrzeuge Aichach</a> · <a href="https://www.markt-kuehbach.de/verzeichnis/index.php?kategorie=22" target="_blank" rel="noopener noreferrer">Feuerwehren Markt Kühbach</a> · <a href="https://www.feuerwehr-kuehbach.de/Einsaetze/einsaetze-2026.html" target="_blank" rel="noopener noreferrer">Einsatzmeldungen Kühbach 2026</a> · <a href="https://www.feuerwehr-kuehbach.de/Einsaetze/einsaetze-2025.html" target="_blank" rel="noopener noreferrer">2025</a> · <a href="https://www.feuerwehr-kuehbach.de/Einsaetze/einsaetze-2024.html" target="_blank" rel="noopener noreferrer">2024</a> · <a href="https://www.feuerwehr-lernbar.bayern/api/media/2783/raw/Teilnehmerunterlage.pdf?version=1" target="_blank" rel="noopener noreferrer">Fahrzeugkunde-Unterlage Feuerwehr-Lernbar Bayern</a>. Für weitere Einheiten bitte bestätigte Angaben ergänzen. Keine echte Alarmierung.</p>
-            <div class="field">
-              <label for="otherCountyUnits">Weitere Feuerwehren im Landkreis (optional)</label>
-              <textarea id="otherCountyUnits" name="otherCountyUnits" rows="3" placeholder="Eine Feuerwehr pro Zeile: Name; Fahrzeug(e); örtliche Besatzung laut bestätigter Angabe"></textarea>
-              <small class="field-hint">Manuell ergänzte Einheiten werden als fiktive Planspielangaben ausgegeben; Funkrufnamen, Fahrzeuge und Besatzungen vor Ort bestätigen.</small>
-            </div>
-            <div class="field">
-              <label for="fireUnitDetails">Lokale Feuerwehrdaten (optional)</label>
-              <textarea id="fireUnitDetails" name="fireUnitDetails" rows="3" placeholder="Eine Zeile pro Fahrzeug: Anzahl; örtlich zugeteilter Funkrufname; Mannschaft; tatsächliche Beladung laut lokalem Inventar"></textarea>
-              <small class="field-hint">Rufnamen und Mannschaftsstärken werden nicht erfunden. Nur vor Ort bestätigte Angaben eintragen; DIN-Musterbeladung ist keine Garantie für das konkrete Fahrzeug. <a href="https://www.dinmedia.de/de" target="_blank" rel="noopener noreferrer">Normen bei DIN Media nachschlagen</a>.</small>
-            </div>
-            <fieldset class="unit-fieldset">
-              <legend>Weitere fiktiv beteiligte Einheiten</legend>
-              <div class="unit-choice-grid">
-                <label><input type="checkbox" name="partnerType" value="Weitere Feuerwehr"> Weitere Feuerwehr</label>
-                <label><input type="checkbox" name="partnerType" value="Rettungsdienst"> Rettungsdienst</label>
-                <label><input type="checkbox" name="partnerType" value="THW"> THW</label>
-                <label><input type="checkbox" name="partnerType" value="Polizei"> Polizei</label>
-                <label><input type="checkbox" name="partnerType" value="Wasserrettung"> Wasserrettung</label>
-                <label><input type="checkbox" name="partnerType" value="Sonstige"> Sonstige</label>
-              </div>
-            </fieldset>
-            <div class="field">
-              <label for="partnerUnitDetails">Fahrzeuge, lokale Rufnamen, Personal und bestätigte Übungsbeladung dieser Einheiten (optional)</label>
-              <textarea id="partnerUnitDetails" name="partnerUnitDetails" rows="3" placeholder="Einheit; Fahrzeugtyp und Anzahl; örtlich zugeteilter Rufname; Personal; lokale Übungsangaben"></textarea>
-            </div>
-            <p class="unit-safety-note">Nur Planspiel-Zuordnung – keine echte Alarmierung oder Einsatzkommunikation. Fahrzeugausstattung, Rufnamen und Besatzungen sind örtlich verschieden; nicht angegebene Daten bleiben offen.</p>
+        <section class="panel area-launch">
+          <div><p class="eyebrow">SCHRITT FÜR SCHRITT</p><h2>Startbereich wählen</h2><p class="muted">Zum Beispiel mit Front starten und dort die zugeordneten Dateien durcharbeiten.</p></div>
+          <div class="area-launch-controls"><label class="sr-only" for="overview-area-select">Startbereich</label><select id="overview-area-select"></select><button id="overview-area-open" type="button" class="button button-primary">Bereich öffnen →</button></div>
+        </section>
+
+        <div class="stat-grid" aria-label="Projektkennzahlen">
+          <article class="stat-card"><span class="stat-label">Erfasste Teile</span><strong id="stat-parts">0</strong><span class="stat-foot">inkl. klar markierter Beispiele</span></article>
+          <article class="stat-card"><span class="stat-label">Offene Druckläufe</span><strong id="stat-queue">0</strong><span class="stat-foot">Abhängigkeiten im Blick</span></article>
+          <article class="stat-card"><span class="stat-label">Baugruppen</span><strong id="stat-assemblies">0</strong><span class="stat-foot">Montagebeziehungen</span></article>
+          <article class="stat-card"><span class="stat-label">Dateiversionen</span><strong id="stat-files">0</strong><span class="stat-foot">Dateien bleiben lokal</span></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">ALS NÄCHSTES</p><h2>Nächste Aktion</h2></div><span class="heading-mark" aria-hidden="true">↗</span></div>
+            <div id="next-action-card" class="next-action"></div>
           </section>
-          <div class="field">
-            <label for="objective">3. Welches Ausbildungsziel soll erreicht werden? <span class="required-mark">(Pflichtfeld)</span></label>
-            <textarea id="objective" name="objective" rows="3" required aria-describedby="objective-error" placeholder="Zum Beispiel: Informationen gemeinsam ordnen und Aufgaben klar abstimmen"></textarea>
-            <small class="field-error" id="objective-error" aria-live="polite"></small>
-          </div>
-          <div class="field">
-            <label for="materials">4. Zusätzliches oder besonderes Übungsmaterial (optional)</label>
-            <textarea id="materials" name="materials" rows="3" aria-describedby="materials-error materials-hint" placeholder="Nur ergänzende oder besondere Übungsmaterialien, je Zeile"></textarea>
-            <small class="field-error" id="materials-error" aria-live="polite"></small>
-            <small class="field-hint" id="materials-hint">Veröffentlichte Einzellisten erscheinen automatisch je Fahrzeug, ersetzen aber keine örtliche Prüfung. Hier nur ergänzendes oder besonders gewünschtes Übungsmaterial eintragen. Für die Einspielung „Material nicht verfügbar“ muss mindestens eine Position eingetragen und im letzten Schritt ausgewählt werden.</small>
-          </div>
-          <div class="field">
-            <label for="mustUse">5. Was soll zwingend berücksichtigt werden?</label>
-            <textarea id="mustUse" name="mustUse" rows="2" aria-describedby="mustUse-error" placeholder="Optional – besondere Geräte, Inhalte oder Schwerpunkte"></textarea>
-            <small class="field-error" id="mustUse-error" aria-live="polite"></small>
-          </div>
-        </section>
-
-        <section class="form-step" data-step="1" aria-labelledby="step-title" hidden>
-          <div class="field">
-            <label for="audience">6. An wen richtet sich die Übung? <span class="required-mark">(Pflichtfeld)</span></label>
-            <select id="audience" name="audience" required aria-describedby="audience-error audience-hint">
-              <option value="">Bitte auswählen</option>
-              <option value="Jugendfeuerwehr (14–18 Jahre)">Jugendfeuerwehr (14–18 Jahre)</option>
-              <option value="MTA-Ausbildungsgruppe">MTA-Ausbildungsgruppe</option>
-              <option value="Aktive Mannschaft">Aktive Mannschaft</option>
-            </select>
-            <small class="field-error" id="audience-error" aria-live="polite"></small>
-            <small class="field-hint" id="audience-hint">Die Wortwahl und der angenommene Ausbildungsstand im Plan richten sich nach dieser Auswahl.</small>
-          </div>
-          <div class="field">
-            <label>7. Ausbildungsniveau</label>
-            <p id="audience-level" class="field-hint">Wird passend zur Zielgruppe automatisch festgelegt.</p>
-          </div>
-          <div class="field">
-            <label for="location">8. Wo findet die Übung statt? <span class="required-mark">(Pflichtfeld)</span></label>
-            <input id="location" name="location" required aria-describedby="location-error" placeholder="Zum Beispiel: Gerätehaus oder Übungsgelände">
-            <small class="field-error" id="location-error" aria-live="polite"></small>
-          </div>
-        </section>
-
-        <section class="form-step" data-step="2" aria-labelledby="step-title" hidden>
-          <div class="form-grid">
-            <div class="field">
-              <label for="participants">9. Anzahl der Teilnehmenden <span class="required-mark">(Pflichtfeld)</span></label>
-              <input id="participants" name="participants" type="number" min="1" max="200" required aria-describedby="participants-error" placeholder="Zum Beispiel: 12">
-              <small class="field-error" id="participants-error" aria-live="polite"></small>
-              <small class="field-hint" id="participants-hint">Bei ausgewählten Landkreis-Fahrzeugen und Führungsrollen wird ein normtypischer Vollbesetzungs-Richtwert eingetragen. Örtliche Besatzung bitte prüfen; du kannst den Wert anpassen.</small>
-            </div>
-            <div class="field">
-              <label for="splitGroups">10. Soll die Gruppe für wechselnde Aufgaben aufgeteilt werden? <span class="required-mark">(Pflichtfeld)</span></label>
-              <select id="splitGroups" name="splitGroups" required aria-describedby="split-groups-hint">
-                <option value="no">Nein – alle bearbeiten die Aufgaben gemeinsam</option>
-                <option value="yes">Ja – Gruppen rotieren durch alle Aufgaben</option>
-              </select>
-              <div id="group-count-field" hidden>
-                <label for="groupCount">In wie viele Gruppen soll aufgeteilt werden?</label>
-                <input id="groupCount" name="groupCount" type="number" min="2" max="12" aria-describedby="groupCount-error split-groups-hint" placeholder="Zum Beispiel: 3">
-                <small class="field-error" id="groupCount-error" aria-live="polite"></small>
-              </div>
-              <small class="field-hint" id="split-groups-hint">Bei Aufteilung erhält jede Gruppe dieselben Aufgabenstationen, aber eine andere Startstation. Innerhalb jeder Gruppe werden die Rollen gewechselt, damit alle Aufgaben bearbeitet werden.</small>
-            </div>
-            <div class="field">
-              <label for="instructors">11. Anzahl der Ausbilderinnen und Ausbilder <span class="required-mark">(Pflichtfeld)</span></label>
-              <input id="instructors" name="instructors" type="number" min="1" max="50" required aria-describedby="instructors-error" placeholder="Zum Beispiel: 2">
-              <small class="field-error" id="instructors-error" aria-live="polite"></small>
-            </div>
-            <div class="field">
-              <label for="duration">12. Dauer der Übung in Minuten <span class="required-mark">(Pflichtfeld)</span></label>
-              <input id="duration" name="duration" type="number" min="15" max="480" required aria-describedby="duration-error" placeholder="Zum Beispiel: 90">
-              <small class="field-error" id="duration-error" aria-live="polite"></small>
-            </div>
-            <div class="field">
-              <label for="effort">13. Aufwand für Vorbereitung und Durchführung <span class="required-mark">(Pflichtfeld)</span></label>
-              <select id="effort" name="effort" required aria-describedby="effort-error">
-                <option value="">Bitte auswählen</option>
-                <option value="gering">Gering</option>
-                <option value="mittel">Mittel</option>
-                <option value="hoch">Hoch</option>
-              </select>
-              <small class="field-error" id="effort-error" aria-live="polite"></small>
-            </div>
-          </div>
-        </section>
-
-        <section class="form-step" data-step="3" aria-labelledby="step-title" hidden>
-          <div class="field">
-            <label for="injectType">14. Welche kontrollierte Lageänderung soll eingespielt werden? <span class="required-mark">(Pflichtfeld)</span></label>
-            <select id="injectType" name="injectType" required aria-describedby="injectType-error">
-              <option value="">Bitte auswählen</option>
-              <option value="missing">Eine wichtige Information fehlt zunächst</option>
-              <option value="conflict">Zwei Informationen widersprechen sich</option>
-              <option value="unavailable">Ein eingeplantes Übungsmaterial ist im Planspiel nicht verfügbar</option>
-              <option value="change">Eine Rahmenbedingung ändert sich</option>
-              <option value="unchanged">Keine Lageänderung – Ausgangslage bleibt unverändert</option>
-            </select>
-            <small class="field-error" id="injectType-error" aria-live="polite"></small>
-          </div>
-          <div class="field" id="unavailable-material-field" hidden>
-            <label for="unavailableMaterial">Welches eingetragene Übungsmaterial ist im Planspiel nicht verfügbar? <span class="required-mark">(Pflichtfeld für diese Einspielung)</span></label>
-            <select id="unavailableMaterial" name="unavailableMaterial" aria-describedby="unavailableMaterial-error unavailableMaterial-hint">
-              <option value="">Bitte zuerst ein Material eintragen</option>
-            </select>
-            <small class="field-error" id="unavailableMaterial-error" aria-live="polite"></small>
-            <small class="field-hint" id="unavailableMaterial-hint">Nur die ausgewählte Planspielposition wird als nicht verfügbar markiert. Tatsächliches Übungsmaterial bleibt unberührt.</small>
-          </div>
-          <div class="field parallel-option" id="parallel-incident-option" hidden>
-            <label class="checkbox-label" for="parallelIncidentEnabled">
-              <input id="parallelIncidentEnabled" name="parallelIncidentEnabled" type="checkbox" value="yes">
-              Parallele Einsatzmeldung kommt dazu (optional)
-            </label>
-          </div>
-          <div class="field" id="parallel-incident-details-field" hidden>
-            <label for="parallelIncidentDetails">Was ist die parallele Einsatzmeldung?</label>
-            <textarea id="parallelIncidentDetails" name="parallelIncidentDetails" rows="3" aria-describedby="parallelIncidentDetails-hint parallelIncidentDetails-error" placeholder="Zum Beispiel: Hinter dem ersten Unfall ist ein weiteres Auto verunglückt."></textarea>
-            <small class="field-hint" id="parallelIncidentDetails-hint">Nur deine Beschreibung wird für die zweite Skizze verwendet. Nicht genannte Details werden nicht ergänzt.</small>
-            <small class="field-error" id="parallelIncidentDetails-error" aria-live="polite"></small>
-          </div>
-          <div class="field">
-            <label for="wishes">15. Besondere Wünsche, Einschränkungen oder Ergänzungen</label>
-            <textarea id="wishes" name="wishes" rows="3" aria-describedby="wishes-error" placeholder="Optional – etwa Barrierefreiheit, Wetter oder gewünschte Varianten"></textarea>
-            <small class="field-error" id="wishes-error" aria-live="polite"></small>
-          </div>
-        </section>
-
-        <div class="form-actions no-print">
-          <button class="button button-secondary" id="back-button" type="button" hidden>Zurück</button>
-          <span class="action-spacer"></span>
-          <button class="button button-primary" id="next-button" type="button">Weiter</button>
-          <button class="button button-primary" id="create-button" type="submit" hidden>Übungsvorschlag erstellen</button>
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">LETZTE ÄNDERUNGEN</p><h2>Projektverlauf</h2></div><button type="button" class="text-button" data-view="aenderungen">Alle anzeigen →</button></div>
+            <div id="recent-changes" class="recent-list"></div>
+          </section>
         </div>
-      </form>
+        <p class="notice"><strong>Wichtige Grenze:</strong> Diese App verwaltet Angaben und Abläufe. Sie prüft weder Konstruktion noch Druckbarkeit, Materialeignung, Sicherheit oder technische Freigaben. Leere oder unbekannte Werte bleiben offen.</p>
+      </section>
 
-      <section id="plan-output" class="plan-output" aria-live="polite" aria-atomic="false"></section>
-    </section>
+      <section id="view-bereiche" class="view" aria-labelledby="page-title" hidden>
+        <div class="section-toolbar"><div><p class="eyebrow">KAROSSERIE / ARBEITSBEREICHE</p><h2>Karosseriebereiche</h2><p class="muted">Dateien und Teile werden erst nach deiner Bestätigung einem Einbauort zugeordnet.</p></div></div>
+        <section class="panel area-workspace-select">
+          <div><p class="eyebrow">AKTUELLER STARTBEREICH</p><h3 id="active-area-title">Front</h3><p id="area-hint" class="muted">Arbeite die Dateien in diesem Bereich nacheinander durch.</p></div>
+          <div class="area-launch-controls"><label class="sr-only" for="area-start-select">Bereich auswählen</label><select id="area-start-select"></select><button id="area-start-button" type="button" class="button button-primary">Hier starten →</button></div>
+        </section>
+        <div id="area-folder-grid" class="area-folder-grid"></div>
+        <section class="panel area-create-panel">
+          <div><p class="eyebrow">ORDNER ERWEITERN</p><h3>Eigenen Bereich hinzufügen</h3><p class="muted">Für Karosseriezonen, die noch nicht in der Liste stehen.</p></div>
+          <form id="area-form" class="area-create-form"><label class="sr-only" for="area-name">Neuer Karosseriebereich</label><input id="area-name" maxlength="60" required placeholder="Bereichsname"><button type="submit" class="button button-quiet">＋ Bereich hinzufügen</button></form>
+        </section>
+        <section class="panel area-files-panel">
+          <div class="panel-heading"><div><p class="eyebrow">AUSGEWÄHLTER ORDNER</p><h3 id="area-files-title">Front</h3><p id="area-files-description" class="muted"></p></div></div>
+          <div id="area-work-items" class="area-work-items"></div>
+        </section>
+        <p class="notice notice-warm"><strong>Keine automatische Bauteilerkennung:</strong> Ohne Dateiinhalte und bestätigte Beschreibung kann die App nicht wissen, wofür ein Teil ist oder wo es montiert wird. Die Ordnerwahl ist eine manuelle Projektzuordnung, keine Passungs- oder Freigabeprüfung.</p>
+      </section>
 
-    <section id="view-gespeichert" class="view" hidden>
-      <div class="intro">
-        <p class="eyebrow">Deine Auswahl</p>
-        <h1>Gespeicherte Übungen</h1>
-        <p>Favoriten und Bewertungen bleiben in diesem Browser auf diesem Gerät. Sie werden nicht automatisch synchronisiert.</p>
-      </div>
-      <div id="favorites-list" class="favorites-list"></div>
-    </section>
+      <section id="view-teile" class="view" aria-labelledby="page-title" hidden>
+        <div class="section-toolbar">
+          <div><p class="eyebrow">PROJEKTSTAMM</p><h2>Teileverwaltung</h2><p class="muted">Nur von dir eingetragene Werte gelten als Projektdaten.</p></div>
+          <button type="button" class="button button-primary" id="new-part-button">＋ Teil erfassen</button>
+        </div>
+        <section class="panel form-panel" id="part-editor-panel" hidden>
+          <div class="panel-heading"><div><p class="eyebrow">TEILESTAMM</p><h3 id="part-form-title">Neues Teil</h3></div><button type="button" class="icon-button" id="close-part-editor" aria-label="Formular schließen">×</button></div>
+          <form id="part-form" class="form-grid">
+            <input id="part-id" type="hidden">
+            <label class="field"><span>Bezeichnung <em>*</em></span><input id="part-name" required maxlength="120" placeholder="Eigene Teilebezeichnung"></label>
+            <label class="field"><span>Teilenummer / Kennung</span><input id="part-code" maxlength="80" placeholder="Optional"></label>
+            <label class="field"><span>Status</span><select id="part-status"><option value="concept">Entwurf</option><option value="planned">Geplant</option><option value="in-progress">In Bearbeitung</option><option value="review">Zur Prüfung</option><option value="complete">Abgeschlossen</option></select></label>
+            <label class="field"><span>Bestand <small>(Stück, leer = nicht erfasst)</small></span><input id="part-stock" type="number" min="0" step="1" placeholder="Nicht erfasst"></label>
+            <label class="field"><span>Material / Werkstoff</span><input id="part-material" maxlength="120" placeholder="Nur bestätigte Angabe"></label>
+            <label class="field"><span>Karosseriebereich</span><select id="part-area"></select></label>
+            <label class="field field-wide"><span>Notizen / technische Angaben</span><textarea id="part-notes" rows="3" placeholder="Maße, Druckparameter und Freigaben nur eintragen, wenn sie bestätigt vorliegen."></textarea></label>
+            <div class="form-actions field-wide"><button class="button button-primary" type="submit">Teil speichern</button><button class="button button-quiet" type="button" id="cancel-part-edit">Abbrechen</button><span class="form-hint">Neue Einträge sind Projektdaten, keine technische Freigabe.</span></div>
+          </form>
+        </section>
+        <div class="filter-bar">
+          <label class="search-field"><span class="sr-only">Teile suchen</span><span aria-hidden="true">⌕</span><input id="part-search" type="search" placeholder="Bezeichnung, Kennung oder Notiz suchen"></label>
+          <label class="filter-select"><span class="sr-only">Nach Status filtern</span><select id="part-status-filter"><option value="">Alle Status</option><option value="concept">Entwurf</option><option value="planned">Geplant</option><option value="in-progress">In Bearbeitung</option><option value="review">Zur Prüfung</option><option value="complete">Abgeschlossen</option></select></label>
+          <label class="filter-select"><span class="sr-only">Nach Karosseriebereich filtern</span><select id="part-area-filter"></select></label>
+          <label class="filter-select"><span class="sr-only">Ansicht auswählen</span><select id="part-view-mode"><option value="table">Tabellenansicht</option><option value="cards">Kartenansicht</option></select></label>
+        </div>
+        <div id="parts-list" class="panel table-panel"></div>
+      </section>
 
-    <section id="view-geraetekunde" class="view" hidden>
-      <div class="intro">
-        <p class="eyebrow">Lokale Daten · nur Theorie</p>
-        <h1>Fahrzeug- und Gerätekunde</h1>
-        <p>Typen, Gerätekategorien und sichere Grundbegriffe. Die Bibliothek behauptet keine tatsächliche Fahrzeugbeladung und ersetzt weder Herstellerunterlagen noch eine qualifizierte Einweisung.</p>
-      </div>
-      <div class="equipment-caveat"><strong>Quellen- und Sicherheitsgrenze:</strong> Öffentlich zugängliche Zusammenfassungen belegen keine vollständige Normbeladung oder Ausstattung eines konkreten Fahrzeugs. DIN Media führt Normen, der Volltext kann zugangsbeschränkt sein. THW-Fahrzeugseiten konnten in dieser Prüfung nicht abgerufen werden. Fehlende Angaben bleiben offen; es werden keine Geräte-Alternativen oder Bedienabläufe erfunden.</div>
-      <div class="field equipment-library-search">
-        <label for="equipment-library-filter">Fahrzeuge, Geräte und Kategorien durchsuchen</label>
-        <input id="equipment-library-filter" type="search" autocomplete="off" placeholder="Zum Beispiel: HLF, Wasserförderung, Funk">
-      </div>
-      <div id="equipment-library" class="equipment-library"></div>
-    </section>
-  </main>
+      <section id="view-druckqueue" class="view" aria-labelledby="page-title" hidden>
+        <div class="section-toolbar"><div><p class="eyebrow">FERTIGUNGSPLANUNG</p><h2>Druckqueue</h2><p class="muted">Dateien werden beim Upload vorgemerkt. Die nächste Empfehlung folgt der Upload-Reihenfolge und ausdrücklich erfassten Abhängigkeiten – keine Druckersteuerung.</p></div></div>
+        <p class="notice notice-warm"><strong>Druckreife bedeutet hier nur Planungsstatus.</strong> Slicer-, Drucker-, Material-, Konstruktions- und Sicherheitsfreigaben werden nicht geprüft. Vor dem tatsächlichen Druck extern fachlich validieren.</p>
+        <p class="notice"><strong>Bambu Studio:</strong> Bei Queue-Einträgen mit Datei kannst du die Datei hier herunterladen. Öffne sie danach in Bambu Studio über <strong>Datei → Öffnen</strong>; slicen und drucken musst du in Bambu Studio selbst.</p>
+        <section class="panel form-panel">
+          <div class="panel-heading"><div><p class="eyebrow">QUEUE ERGÄNZEN</p><h3>Drucklauf planen</h3></div></div>
+          <form id="queue-form" class="form-grid">
+            <label class="field"><span>Teil <em>*</em></span><select id="queue-part" required><option value="">Teil auswählen</option></select></label>
+            <label class="field"><span>Geplante Stückzahl <em>*</em></span><input id="queue-quantity" type="number" min="1" step="1" value="1" required></label>
+            <fieldset class="field field-wide dependency-field"><legend>Abhängigkeiten <small>(optional)</small></legend><div id="dependency-options" class="check-list"></div><small>Offene oder nicht qualitätsbestätigte Abhängigkeiten blockieren den nächsten Queue-Schritt.</small></fieldset>
+            <label class="field field-wide"><span>Planungsnotiz</span><textarea id="queue-notes" rows="2" placeholder="Nur bestätigte Projektangaben"></textarea></label>
+            <div class="form-actions field-wide"><button class="button button-primary" type="submit">In Queue einreihen</button></div>
+          </form>
+        </section>
+        <div id="queue-list" class="queue-list"></div>
+      </section>
 
-  <footer class="site-footer">
-    <p>Der Übungsplaner arbeitet lokal im Browser. Es werden keine Daten an externe Dienste gesendet.</p>
-  </footer>
+      <section id="view-journal" class="view" aria-labelledby="page-title" hidden>
+        <div class="section-toolbar"><div><p class="eyebrow">FERTIGUNGSHISTORIE</p><h2>Druckjournal</h2><p class="muted">Einträge dokumentieren Nutzereingaben. Keine automatische Geräte- oder Qualitätsmessung.</p></div></div>
+        <div id="journal-list" class="panel table-panel"></div>
+      </section>
+
+      <section id="view-baugruppen" class="view" aria-labelledby="page-title" hidden>
+        <div class="section-toolbar"><div><p class="eyebrow">MONTAGESTRUKTUR</p><h2>Baugruppen</h2><p class="muted">Erfasse selbst bestätigte Beziehungen; die App leitet keine Passungen oder Reihenfolgen ab.</p></div></div>
+        <section class="panel form-panel">
+          <div class="panel-heading"><div><p class="eyebrow">STRUKTUR ERFASSEN</p><h3>Baugruppe anlegen</h3></div></div>
+          <form id="assembly-form" class="form-grid">
+            <label class="field field-wide"><span>Baugruppenname <em>*</em></span><input id="assembly-name" required maxlength="120" placeholder="Eigene Bezeichnung"></label>
+            <fieldset class="field field-wide dependency-field"><legend>Zugeordnete Teile</legend><div id="assembly-part-options" class="check-list"></div></fieldset>
+            <label class="field field-wide"><span>Montagehinweis</span><textarea id="assembly-notes" rows="2" placeholder="Keine ungeprüften Montage- oder Sicherheitsanweisungen"></textarea></label>
+            <div class="form-actions field-wide"><button class="button button-primary" type="submit">Baugruppe speichern</button></div>
+          </form>
+        </section>
+        <div id="assemblies-list" class="assembly-grid"></div>
+      </section>
+
+      <section id="view-dateien" class="view" aria-labelledby="page-title" hidden>
+        <div class="section-toolbar"><div><p class="eyebrow">PROJEKTDOKUMENTATION</p><h2>Dateien &amp; Versionen</h2><p class="muted">Dateiinhalt und Versionsmetadaten werden ausschließlich im lokalen Browser gespeichert.</p></div></div>
+        <p class="notice notice-warm"><strong>Übergabe an Bambu Studio:</strong> Lade die gewünschte Dateiversion herunter und öffne sie anschließend im Download-Ordner per Doppelklick oder in Bambu Studio über <strong>Datei → Öffnen</strong>. Der Browser kann Bambu Studio nicht direkt starten. Prüfe, ob das Dateiformat von deiner installierten Version unterstützt wird.</p>
+        <section class="panel form-panel">
+          <div class="panel-heading"><div><p class="eyebrow">DATEIARCHIV</p><h3>Dateien gesammelt hochladen</h3></div></div>
+          <form id="file-form" class="form-grid">
+            <label class="field field-wide"><span>Dateien <em>*</em></span><input id="file-input" type="file" multiple required><small>Jede Datei wird einzeln unter ihrem tatsächlichen Dateinamen registriert und als Druckkandidat vorgemerkt. Ein identischer Dateiname erzeugt eine weitere Version. Technische Eigenschaften werden nicht aus Dateinamen abgeleitet. Ordne die Datei vor dem Journalabschluss optional einem Projektteil zu, damit eine bestätigte Gutmenge dessen erfassten Bestand aktualisieren kann.</small></label>
+            <label class="field field-wide"><span>Gemeinsame Upload-Notiz</span><input id="file-note" maxlength="240" placeholder="Optional für alle Dateien dieses Uploads"></label>
+            <div class="form-actions field-wide"><button class="button button-primary" type="submit">Dateien registrieren &amp; vormerken</button><span class="form-hint">Dateien sind Teil der JSON-Sicherung; große Dateien vergrößern den Export.</span></div>
+          </form>
+        </section>
+        <div id="files-list" class="file-list"></div>
+      </section>
+
+      <section id="view-aenderungen" class="view" aria-labelledby="page-title" hidden>
+        <div class="section-toolbar"><div><p class="eyebrow">NACHVOLLZIEHBARKEIT</p><h2>Änderungsprotokoll</h2><p class="muted">Lokale Ereignishistorie; ohne Anmeldung ist keine persönliche Urheberschaft verifiziert.</p></div></div>
+        <div id="changes-list" class="panel timeline"></div>
+      </section>
+
+      <section id="view-sicherung" class="view" aria-labelledby="page-title" hidden>
+        <div class="section-toolbar"><div><p class="eyebrow">DATENHOHEIT</p><h2>JSON-Sicherung</h2><p class="muted">Exportiere oder stelle den gesamten lokalen Projektbestand wieder her.</p></div></div>
+        <div class="backup-grid">
+          <section class="panel backup-card">
+            <span class="backup-icon" aria-hidden="true">↓</span><h3>Vollständiger Export</h3>
+            <p>Erstellt eine JSON-Datei mit Projekt-, Teile-, Druck-, Baugruppen-, Journal-, Änderungs- und Dateiversionsdaten einschließlich Dateiinhalten.</p>
+            <button id="export-button" class="button button-primary" type="button">JSON herunterladen</button>
+          </section>
+          <section class="panel backup-card">
+            <span class="backup-icon" aria-hidden="true">↑</span><h3>Sicherung wiederherstellen</h3>
+            <p>Die gewählte Sicherung ersetzt den vollständigen lokalen Datenbestand. Vorhandene Daten vorher exportieren. Die Datei wird vor dem Import auf Grundstruktur geprüft.</p>
+            <label class="button button-outline" for="import-input">JSON auswählen</label><input id="import-input" class="sr-only" type="file" accept="application/json,.json">
+            <span id="import-filename" class="form-hint">Noch keine Datei ausgewählt</span>
+          </section>
+        </div>
+        <div class="notice notice-warm"><strong>Speichergrenzen:</strong> Daten sind nur in diesem Browserprofil auf diesem Gerät vorhanden; es gibt keine Cloud-Synchronisierung oder Mehrbenutzerfunktion. Browserdaten können gelöscht werden und Speicherquoten sind browserabhängig. JSON-Dateien können wegen eingebetteter Dateiinhalte groß sein. Sichere regelmäßig an einem getrennten, geeigneten Ort und teste die Wiederherstellung.</div>
+      </section>
+
+      <footer class="app-footer"><span>ROADSTER · PROJEKTVERWALTUNG</span><span>Lokale Daten · keine technischen Freigaben</span></footer>
+    </main>
+  </div>
+
+  <dialog id="journal-dialog" class="modal" aria-labelledby="journal-dialog-title">
+    <form id="journal-form" method="dialog">
+      <div class="panel-heading"><div><p class="eyebrow">DRUCKLAUF ABSCHLIESSEN</p><h2 id="journal-dialog-title">Lauf dokumentieren</h2></div><button type="button" id="close-journal-dialog" class="icon-button" aria-label="Dialog schließen">×</button></div>
+      <p id="journal-stock-warning" class="notice notice-warm" hidden></p>
+      <input id="journal-queue-id" type="hidden">
+      <label class="field"><span>Produzierte Stückzahl <em>*</em></span><input id="journal-produced" type="number" min="1" step="1" required></label>
+      <label class="field"><span>Als gut bestätigte Stückzahl <small>(nur nach Prüfung)</small></span><input id="journal-good" type="number" min="0" step="1" placeholder="Erst bei bestätigter Prüfung"></label>
+      <label class="confirm-check"><input id="journal-quality-confirmed" type="checkbox"><span>Ich bestätige die oben eingetragene Gutmenge als geprüft. Diese App misst oder verifiziert die Qualität nicht.</span></label>
+      <label class="field"><span>Prüf-/Laufnotiz</span><textarea id="journal-note" rows="3" placeholder="Optional; keine automatische Messung"></textarea></label>
+      <div class="dialog-actions"><button class="button button-quiet" type="button" id="cancel-journal">Abbrechen</button><button class="button button-primary" type="submit">Im Journal speichern</button></div>
+    </form>
+  </dialog>
+
+  <template id="empty-state-template"><div class="empty-state"><span class="empty-icon" aria-hidden="true">◇</span><strong></strong><p></p></div></template>
 </body>
 </html>
