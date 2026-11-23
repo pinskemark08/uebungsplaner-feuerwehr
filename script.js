@@ -3,13 +3,16 @@
 const DB_NAME = "roadster-karosserieprojekt";
 const DB_VERSION = 1;
 const STORE_NAMES = ["project", "parts", "prints", "assemblies", "files", "journal", "changes"];
-const CLOUD_CONFIG_KEY = "roadster-cloud-config";
 const CLOUD_META_KEY = "roadster-cloud-sync-meta";
 const LAST_VIEW_KEY = "roadster-last-view";
 const LOCAL_CHANGE_KEY = "roadster-local-change-id";
 const CLOUD_TABLE = "roadster_project_state";
 const CLOUD_BUCKET = "roadster-files";
 const CLOUD_POLL_INTERVAL = 15000;
+const SUPABASE_CONFIG = Object.freeze({
+  url: "https://gzgtgcgakqujmukpznzg.supabase.co",
+  key: "sb_publishable_24AxpWWrE0kRFfrhe2YQOA_X5rIGvYr"
+});
 const UNASSIGNED_AREA_ID = "__unassigned__";
 const DEFAULT_AREAS = [
   { id: "front", name: "Front", order: 1 },
@@ -188,11 +191,6 @@ async function loadData() {
   };
 }
 
-function getCloudConfig() {
-  const raw = localStorage.getItem(CLOUD_CONFIG_KEY);
-  return raw ? JSON.parse(raw) : null;
-}
-
 function getCloudMeta() {
   const raw = localStorage.getItem(CLOUD_META_KEY);
   return raw ? JSON.parse(raw) : {};
@@ -213,9 +211,6 @@ function updateCloudStatus(message, state) {
 }
 
 function renderCloudControls() {
-  const config = getCloudConfig();
-  $("cloud-project-url").value = config?.url || "";
-  $("cloud-public-key").value = config?.key || "";
   $("cloud-auth-form").hidden = !cloudClient;
   $("cloud-login-button").hidden = Boolean(cloudUser);
   $("cloud-signup-button").hidden = Boolean(cloudUser);
@@ -569,49 +564,24 @@ async function checkCloudForUpdates() {
 }
 
 async function initializeCloud() {
-  const config = getCloudConfig();
   renderCloudControls();
-  if (!config) {
-    updateCloudStatus("Noch nicht eingerichtet. Bis zur Cloud-Anmeldung bleibt die lokale Speicherung aktiv.", "local");
-    return;
-  }
   if (!window.supabase || typeof window.supabase.createClient !== "function") {
     updateCloudStatus("Supabase-Client konnte nicht geladen werden. Prüfe Internetverbindung oder CDN-Zugriff.", "error");
     return;
   }
-  cloudClient = window.supabase.createClient(config.url, config.key, {
+  cloudClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
   renderCloudControls();
   const { data, error } = await cloudClient.auth.getSession();
   if (error) throw new Error(`Supabase-Sitzung konnte nicht gelesen werden: ${error.message}`);
   if (data.session?.user) await connectCloudAccount(data.session.user);
-  else updateCloudStatus("Cloud-Verbindung gespeichert. Melde dich mit deinem Konto an.", "local");
-}
-
-async function saveCloudConfig(event) {
-  event.preventDefault();
-  const url = $("cloud-project-url").value.trim().replace(/\/+$/, "");
-  const key = $("cloud-public-key").value.trim();
-  if (!url || !key) throw new Error("Bitte Projekt-URL und öffentlichen Schlüssel eingeben.");
-  let parsedUrl;
-  try { parsedUrl = new URL(url); } catch (_) { throw new Error("Die Supabase-Projekt-URL ist ungültig."); }
-  if (parsedUrl.protocol !== "https:" && parsedUrl.hostname !== "localhost") {
-    throw new Error("Die Supabase-Projekt-URL muss HTTPS verwenden.");
-  }
-  localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify({ url, key }));
-  stopCloudUpdates();
-  cloudClient = null;
-  cloudUser = null;
-  cloudRemoteUpdatedAt = null;
-  cloudRemoteFileIds = new Set();
-  await initializeCloud();
-  showAlert("Cloud-Verbindung lokal gespeichert. Melde dich an oder lege ein Konto an.", true);
+  else updateCloudStatus("Cloud-Verbindung bereit. Melde dich an oder lege ein Konto an.", "local");
 }
 
 async function signInToCloud(event) {
   event.preventDefault();
-  if (!cloudClient) throw new Error("Bitte zuerst die Supabase-Projektverbindung speichern.");
+  if (!cloudClient) throw new Error("Die Cloud-Verbindung konnte nicht initialisiert werden. Bitte lade die Seite erneut.");
   const { data, error } = await cloudClient.auth.signInWithPassword({
     email: $("cloud-email").value.trim(),
     password: $("cloud-password").value
@@ -622,7 +592,7 @@ async function signInToCloud(event) {
 }
 
 async function createCloudAccount() {
-  if (!cloudClient) throw new Error("Bitte zuerst die Supabase-Projektverbindung speichern.");
+  if (!cloudClient) throw new Error("Die Cloud-Verbindung konnte nicht initialisiert werden. Bitte lade die Seite erneut.");
   if (!$("cloud-auth-form").reportValidity()) return;
   const { data, error } = await cloudClient.auth.signUp({
     email: $("cloud-email").value.trim(),
@@ -1865,7 +1835,6 @@ function bindEvents() {
     if (savePart) runSafely(() => saveFilePart(savePart.dataset.saveFilePart));
     if (saveArea) runSafely(() => saveFileArea(saveArea.dataset.saveFileArea));
   });
-  $("cloud-config-form").addEventListener("submit", (event) => runSafely(() => saveCloudConfig(event)));
   $("cloud-auth-form").addEventListener("submit", (event) => runSafely(() => signInToCloud(event)));
   $("cloud-signup-button").addEventListener("click", () => runSafely(createCloudAccount));
   $("cloud-sync-button").addEventListener("click", () => runSafely(synchronizeNow));

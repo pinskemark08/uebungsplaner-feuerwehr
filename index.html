@@ -197,12 +197,8 @@
         <div class="section-toolbar"><div><p class="eyebrow">DATENHOHEIT</p><h2>JSON-Sicherung</h2><p class="muted">Exportiere oder stelle den gesamten lokalen Projektbestand wieder her.</p></div></div>
         <section class="panel form-panel cloud-panel">
           <div class="panel-heading"><div><p class="eyebrow">GERÄTEÜBERGREIFEND</p><h3>Private Cloud-Synchronisierung</h3></div></div>
-          <p id="cloud-status" class="cloud-status" role="status" aria-live="polite">Noch nicht eingerichtet. Bis zur Cloud-Anmeldung bleibt die lokale Speicherung aktiv.</p>
-          <form id="cloud-config-form" class="form-grid">
-            <label class="field"><span>Supabase-Projekt-URL</span><input id="cloud-project-url" type="url" autocomplete="url" placeholder="https://dein-projekt.supabase.co" required></label>
-            <label class="field"><span>Öffentlicher anon / publishable key</span><input id="cloud-public-key" type="password" autocomplete="off" placeholder="Öffentlicher Browser-Key, niemals service_role" required></label>
-            <div class="form-actions field-wide"><button class="button button-quiet" type="submit">Cloud-Verbindung speichern</button><span class="form-hint">URL und öffentlicher Schlüssel erhältst du in den Supabase-Projekteinstellungen.</span></div>
-          </form>
+          <p id="cloud-status" class="cloud-status" role="status" aria-live="polite">Cloud-Verbindung wird geladen …</p>
+          <p class="form-hint">Die Verbindung ist zentral vorkonfiguriert. Auf jedem Gerät reicht die Anmeldung mit demselben Konto; URL und öffentlichen Schlüssel musst du nicht erneut eingeben.</p>
           <form id="cloud-auth-form" class="form-grid">
             <label class="field"><span>E-Mail</span><input id="cloud-email" type="email" autocomplete="username" required></label>
             <label class="field"><span>Passwort</span><input id="cloud-password" type="password" autocomplete="current-password" minlength="8" required></label>
@@ -214,7 +210,7 @@
               <span id="cloud-account-label" class="form-hint"></span>
             </div>
           </form>
-          <p class="form-hint">Vor der Nutzung einmalig den Inhalt der SQL-Datei im Supabase SQL Editor ausführen. Die Zugriffsregeln begrenzen Daten und Dateien auf das angemeldete Konto. Der Browser-Key ist öffentlich; verwende niemals einen service_role-Schlüssel.</p>
+          <p class="form-hint">Vor der ersten Synchronisierung einmalig den Inhalt der SQL-Datei im Supabase SQL Editor ausführen. Die Zugriffsregeln begrenzen Daten und Dateien auf das angemeldete Konto. Der eingebundene Browser-Key ist öffentlich; verwende niemals einen service_role-Schlüssel.</p>
           <a class="text-button" href="supabase-setup.sql" download>Supabase-Datenbankschema herunterladen →</a>
         </section>
         <div class="backup-grid">
